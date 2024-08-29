@@ -6,8 +6,9 @@ fn disassemble(buffer: &[u8]) -> usize {
             let w = buffer[0] & 0b00000001;
             let d = (buffer[0] >> 1) & 0b00000001;
             let mod_ = (buffer[1] >> 6) & 0b00000011;
-            let mut reg = match mod_ {
-                0b11 => get_reg(w, (buffer[1] >> 3) & 0b00000111).to_string(),
+            let mut reg = get_reg(w, (buffer[1] >> 3) & 0b00000111).to_string();
+            let mut rm = match mod_ {
+                0b11 => get_reg(w, (buffer[1]) & 0b00000111).to_string(),
                 0b00 => get_reg_mod00((buffer[1]) & 0b00000111).to_string(),
                 0b01 => get_reg_mod01((buffer[1]) & 0b00000111, buffer[2]).to_string(),
                 0b10 => get_reg_mod10(
@@ -17,39 +18,16 @@ fn disassemble(buffer: &[u8]) -> usize {
                 .to_string(),
                 _ => panic!("Invalid mod"),
             };
-            let mut reg1 = get_reg(w, buffer[1] & 0b00000111).to_string();
             if d == 1 {
                 // We are swapping the registers because that's what the manual says
-                std::mem::swap(&mut reg, &mut reg1);
+                println!("MOV {}, {}", reg, rm);
+                // std::mem::swap(&mut reg, &mut reg1);
+            } else {
+                println!("MOV {}, {}", rm, reg);
             }
-            println!("MOV {}, {}", reg1, reg);
-            match buffer[1] >> 6 {
-                0b11 => {
-                    // match get_dw(buffer[0]) {
-                    //     0b00 => println!(
-                    //         "MOV {}, {}",
-                    //         get_reg_w0(buffer[1] & 0b00000111),
-                    //         get_reg_w0((buffer[1] >> 3) & 0b00000111)
-                    //     ),
-                    //     0b10 => println!(
-                    //         "MOV {}, {}",
-                    //         get_reg_w0((buffer[1] >> 3) & 0b00000111),
-                    //         get_reg_w0(buffer[1] & 0b00000111)
-                    //     ),
-                    //     0b01 => println!(
-                    //         "MOV {}, {}",
-                    //         get_reg_w1(buffer[1] & 0b00000111),
-                    //         get_reg_w1((buffer[1] >> 3) & 0b00000111)
-                    //     ),
-                    //     0b11 => println!(
-                    //         "MOV {}, {}",
-                    //         get_reg_w1((buffer[1] >> 3) & 0b00000111),
-                    //         get_reg_w1(buffer[1] & 0b00000111)
-                    //     ),
 
-                    //     dw => panic!("{dw:2b}, is an invalid dw"),
-                    // };
-                }
+            match buffer[1] >> 6 {
+                0b11 => {}
 
                 0b00 => return 2,
                 0b01 => {
@@ -124,56 +102,66 @@ fn get_reg_mod00(rm: u8) -> &'static str {
 }
 
 fn get_reg_mod01(rm: u8, d8: u8) -> String {
+    let plus_suffix = add_plus_if_not_zero(d8 as i16);
     match rm {
-        0b000 => format!("[bx + si + {d8}]"),
-        0b001 => format!("[bx + di + {d8}]"),
-        0b010 => format!("[bp + si + {d8}]"),
-        0b011 => format!("[bp + di + {d8}]"),
-        0b100 => format!("[si + {d8}]"),
-        0b101 => format!("[di + {d8}]"),
-        0b110 => format!("[bp + {d8}]"),
-        0b111 => format!("[bx + {d8}]"),
+        0b000 => format!("[bx + si{plus_suffix}]"),
+        0b001 => format!("[bx + di{plus_suffix}]"),
+        0b010 => format!("[bp + si{plus_suffix}]"),
+        0b011 => format!("[bp + di{plus_suffix}]"),
+        0b100 => format!("[si{plus_suffix}]"),
+        0b101 => format!("[di{plus_suffix}]"),
+        0b110 => format!("[bp{plus_suffix}]"),
+        0b111 => format!("[bx{plus_suffix}]"),
         _ => panic!("Invalid w"),
     }
 }
 
+fn add_plus_if_not_zero(value: i16) -> String {
+    if value == 0 {
+        return (format!(""));
+    } else {
+        return (format!(" + {value}"));
+    }
+}
+
 fn get_reg_mod10(rm: u8, d16: i16) -> String {
+    let plus_suffix = add_plus_if_not_zero(d16);
     match rm {
-        0b000 => format!("[bx + si + {d16}]"),
-        0b001 => format!("[bx + di + {d16}]"),
-        0b010 => format!("[bp + si + {d16}]"),
-        0b011 => format!("[bp + di + {d16}]"),
-        0b100 => format!("[si + {d16}]"),
-        0b101 => format!("[di + {d16}]"),
-        0b110 => format!("[bp + {d16}]"),
-        0b111 => format!("[bx + {d16}]"),
+        0b000 => format!("[bx + si{plus_suffix}]"),
+        0b001 => format!("[bx + di{plus_suffix}]"),
+        0b010 => format!("[bp + si{plus_suffix}]"),
+        0b011 => format!("[bp + di{plus_suffix}]"),
+        0b100 => format!("[si{plus_suffix}]"),
+        0b101 => format!("[di{plus_suffix}]"),
+        0b110 => format!("[bp{plus_suffix}]"),
+        0b111 => format!("[bx{plus_suffix}]"),
         _ => panic!("Invalid w"),
     }
 }
 fn get_reg_w1(input: u8) -> &'static str {
     match input {
-        0b000 => "AX",
-        0b001 => "CX",
-        0b010 => "DX",
-        0b011 => "BX",
-        0b100 => "SP",
-        0b101 => "BP",
-        0b110 => "SI",
-        0b111 => "DI",
+        0b000 => "ax",
+        0b001 => "cx",
+        0b010 => "dx",
+        0b011 => "bx",
+        0b100 => "sp",
+        0b101 => "bp",
+        0b110 => "si",
+        0b111 => "di",
         reg => panic!("{reg:3b}, is an invalid register"),
     }
 }
 
 fn get_reg_w0(input: u8) -> &'static str {
     match input {
-        0b000 => "AL",
-        0b001 => "CL",
-        0b010 => "DL",
-        0b011 => "BL",
-        0b100 => "AH",
-        0b101 => "CH",
-        0b110 => "DH",
-        0b111 => "BH",
+        0b000 => "al",
+        0b001 => "cl",
+        0b010 => "dl",
+        0b011 => "bl",
+        0b100 => "ah",
+        0b101 => "ch",
+        0b110 => "dh",
+        0b111 => "bh",
         reg => panic!("{reg:3b}, is an invalid register"),
     }
 }
